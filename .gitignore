@@ -1,0 +1,7 @@
+bin/
+obj/
+# Decompiled game code: local API reference only, never commit.
+ref/
+# Save backups are personal data.
+save-backup/
+*.log

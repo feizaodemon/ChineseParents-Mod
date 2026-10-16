@@ -65,6 +65,9 @@ namespace ChineseParentsMod
             TestTextSpeed();
             yield return TestPanel();
             yield return TestThemeRebuild();
+            TestSnapshotsInTempDir();
+            TestSnapshotsOnRealSave();
+            yield return TestClickThrough();
 
             m_report.Add("");
             m_report.Add($"Unity 错误日志 {m_unityErrors} 条，失败 {m_failures} 项。");

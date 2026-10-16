@@ -1,4 +1,5 @@
 using HarmonyLib;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 namespace ChineseParentsMod
@@ -21,6 +22,14 @@ namespace ChineseParentsMod
         }
 
         private static void Postfix(PlayableText __instance, float __state) => __instance.Duration = __state;
+    }
+
+    // IMGUI does not consume clicks for uGUI, so a click on the panel would also hit the game button under it.
+    // While the pointer is over the panel, skip the frame's uGUI input processing.
+    [HarmonyPatch(typeof(EventSystem), "Update")]
+    internal static class BlockClickThroughPatch
+    {
+        private static bool Prefix() => !Plugin.PointerOverPanel;
     }
 
     // The studio logo is a 2 s fade before the title screen; the game itself skips it in debug builds.

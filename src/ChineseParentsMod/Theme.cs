@@ -22,7 +22,7 @@ namespace ChineseParentsMod
 
         public readonly float Scale;
         public GUIStyle Window, Shadow, Title, Hint, Section, Body, Note, NoteRow, Value, Empty, RowName;
-        public GUIStyle Segment, Tab, Card, Row, RowAlt, Primary, Ghost, Field, Close, Message;
+        public GUIStyle Segment, Tab, Card, Row, RowAlt, Primary, Ghost, Confirm, Field, Close, Message;
         public GUIStyle ChipGray, ChipAmber, ChipGreen, LockOff, LockOn;
 
         private readonly Font m_font;
@@ -75,6 +75,10 @@ namespace ChineseParentsMod
             Primary.fixedHeight = S(38);
             Ghost = Button(14, Rounded(Color.white, Line, 7), Rounded(PaperDeep, Seal, 7), Rounded(Line, SealDark, 7), Ink, Seal, 7);
             Ghost.fixedHeight = S(30);
+            // Second step of a two-click action: Ghost's shape, Primary's color.
+            Confirm = Button(14, Rounded(Seal, Seal, 7), Rounded(SealDark, SealDark, 7), Rounded(SealDeep, SealDeep, 7), Color.white, Color.white, 7);
+            Confirm.fixedHeight = S(30);
+            Confirm.fontStyle = FontStyle.Bold;
             Close = Button(24, m_clear, Rounded(PaperDeep, PaperDeep, 8), Rounded(Line, Line, 8), InkSoft, Seal, 8);
             Close.padding = Pad(0, 0, 0, 3);
             Close.fixedWidth = Close.fixedHeight = S(34);

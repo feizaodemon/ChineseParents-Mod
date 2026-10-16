@@ -13,12 +13,14 @@ namespace ChineseParentsMod
         public static ConfigEntry<int> TextSpeedIndex;
         public static ConfigEntry<bool> SkipIntro;
         public static ConfigEntry<bool> SteamAchievements;
+        public static ConfigEntry<bool> AutoSnapshot;
 
         public static void Bind(ConfigFile config)
         {
             TextSpeedIndex = config.Bind("Text", "SpeedIndex", 0, "Typewriter speed: 0 = 1x, 1 = 2x, 2 = 4x, 3 = 8x, 4 = instant.");
             SkipIntro = config.Bind("Startup", "SkipIntro", true, "Skip the studio logo and go straight to the title screen.");
             SteamAchievements = config.Bind("Unlock", "SteamAchievements", true, "Also unlock Steam achievements when unlocking all achievements.");
+            AutoSnapshot = config.Bind("Saves", "AutoSnapshot", true, "Snapshot the save folder before every unlock.");
         }
 
         public static float ScaleDuration(float duration)

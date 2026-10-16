@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ChineseParentsMod
 {
-    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "0.3.0")]
+    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "0.4.0")]
     public partial class Plugin : BaseUnityPlugin
     {
         private const string Guid = "local.chineseparents.cheatpanel";
@@ -16,7 +16,10 @@ namespace ChineseParentsMod
         private const float WindowWidth = 560f;
         // Layout sizes are authored for a 1080p screen; Theme scales them to the real one.
         private const float DesignHeight = 1080f;
-        private static readonly string[] Tabs = { "解锁", "属性", "设置" };
+        private static readonly string[] Tabs = { "解锁", "属性", "存档", "设置" };
+
+        // Read by BlockClickThroughPatch; updated every frame from the real mouse position.
+        public static bool PointerOverPanel { get; private set; }
 
         private bool m_show;
         private int m_tab;
@@ -31,6 +34,16 @@ namespace ChineseParentsMod
         private void Awake()
         {
             var watch = Stopwatch.StartNew();
+            // Before the game reads any save file.
+            try
+            {
+                string restored = Snapshots.ApplyPendingRestore();
+                if (restored != null) Logger.LogInfo(restored);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("pending restore failed: " + e);
+            }
             Settings.Bind(Config);
             new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
             Logger.LogInfo($"loaded in {watch.ElapsedMilliseconds} ms; press F1 to open the panel");
@@ -47,7 +60,13 @@ namespace ChineseParentsMod
             {
                 m_show = !m_show;
                 m_inputs.Clear();
+                m_snapshots = null;
             }
+            Vector3 mouse = Input.mousePosition;
+            PointerOverPanel = m_show && m_window.Contains(new Vector2(mouse.x, Screen.height - mouse.y));
+#if SELFTEST
+            if (m_forcePointerOverPanel.HasValue) PointerOverPanel = m_forcePointerOverPanel.Value;
+#endif
             if (m_locked.Count == 0 || !IsInGame())
             {
                 return;
@@ -115,12 +134,15 @@ namespace ChineseParentsMod
             GUILayout.Space(m_theme.S(14));
 
             GUILayout.BeginHorizontal(m_theme.Segment);
-            m_tab = GUILayout.Toolbar(m_tab, Tabs, m_theme.Tab);
+            int tab = GUILayout.Toolbar(m_tab, Tabs, m_theme.Tab);
+            if (tab != m_tab) m_snapshots = null;
+            m_tab = tab;
             GUILayout.EndHorizontal();
             GUILayout.Space(m_theme.S(14));
 
             if (m_tab == 0) DrawUnlocks(loggedIn);
             else if (m_tab == 1) DrawAttributes(inGame);
+            else if (m_tab == 2) DrawSnapshots();
             else DrawSettings();
 
             if (m_message.Length > 0)
@@ -137,12 +159,14 @@ namespace ChineseParentsMod
             bool steam = Settings.SteamAchievements.Value;
             GUI.enabled = loggedIn;
             Card("成就", steam ? "游戏里的成就全部完成，Steam 成就也一起解锁。" : "只完成游戏里的成就，Steam 成就不动。",
-                () => ActionButton("全部解锁", () => Cheats.UnlockAchievements(steam)),
+                () => ActionButton("全部解锁", () => SnapshotThen("成就", () => Cheats.UnlockAchievements(steam))),
                 () => Settings.SteamAchievements.Value = SwitchRow("同时解锁 Steam 成就（解锁后会显示在 Steam 个人资料上）", steam));
-            Card("图鉴", "传承等级升满，特长、职业、人物全部收录。", () => ActionButton("全部解锁", Cheats.UnlockCollections));
-            Card("传家宝", "每种传家宝各拿一件。", () => ActionButton("全部领取", Cheats.UnlockTreasures));
+            Card("图鉴", "传承等级升满，特长、职业、人物全部收录。", () => ActionButton("全部解锁", () => SnapshotThen("图鉴", Cheats.UnlockCollections)));
+            Card("传家宝", "每种传家宝各拿一件。", () => ActionButton("全部领取", () => SnapshotThen("传家宝", Cheats.UnlockTreasures)));
             GUI.enabled = true;
-            GUILayout.Label(loggedIn ? "点完马上存进账号存档，正在玩的这局不受影响。" : "存档还没读完，稍等一下。", m_theme.Note);
+            GUILayout.Label(!loggedIn ? "存档还没读完，稍等一下。" : Settings.AutoSnapshot.Value
+                ? "点完马上存进账号存档，正在玩的这局不受影响。解锁前会自动存快照。"
+                : "点完马上存进账号存档，正在玩的这局不受影响。", m_theme.Note);
         }
 
         private void DrawSettings()

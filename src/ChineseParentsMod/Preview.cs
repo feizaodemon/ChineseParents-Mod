@@ -1,4 +1,5 @@
 #if PREVIEW
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -37,7 +38,21 @@ namespace ChineseParentsMod
             m_message = "";
             yield return Shot(dir, "3-attributes-menu");
             m_tab = 2;
-            yield return Shot(dir, "4-settings");
+            m_snapshots = new List<Snapshot>
+            {
+                new Snapshot { Name = "a", Time = new DateTime(2026, 10, 16, 21, 40, 12), Kind = SnapshotKind.BeforeUnlock, Note = "成就" },
+                new Snapshot { Name = "b", Time = new DateTime(2026, 10, 16, 20, 15, 3), Kind = SnapshotKind.Manual },
+                new Snapshot { Name = "c", Time = new DateTime(2026, 10, 15, 23, 2, 47), Kind = SnapshotKind.BeforeRestore },
+                new Snapshot { Name = "d", Time = new DateTime(2026, 10, 15, 22, 58, 30), Kind = SnapshotKind.BeforeUnlock, Note = "传家宝" },
+            };
+            m_pending = "b";
+            m_confirmKey = "delete:d";
+            m_confirmUntil = float.MaxValue;
+            Report("已排好回滚到 10-16 20:15:03，下次启动游戏时生效。");
+            yield return Shot(dir, "4-snapshots");
+            m_message = "";
+            m_tab = 3;
+            yield return Shot(dir, "5-settings");
             Application.Quit();
         }
 

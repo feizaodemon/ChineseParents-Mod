@@ -50,14 +50,14 @@ namespace ChineseParentsMod
             }
             mgr.OnChg?.Invoke();
             SaveAccount();
-            return $"游戏内成就 {maxProcesses.Count} 类已完成；{UnlockSteamAchievements()}";
+            return "成就已全部完成。" + UnlockSteamAchievements();
         }
 
         private static string UnlockSteamAchievements()
         {
             if (!SteamManager.Initialized)
             {
-                return "Steam 未初始化，跳过 Steam 成就";
+                return "没连上 Steam，Steam 成就没动。";
             }
             uint total = SteamUserStats.GetNumAchievements();
             int unlocked = 0;
@@ -70,7 +70,7 @@ namespace ChineseParentsMod
                 }
             }
             SteamUserStats.StoreStats();
-            return $"Steam 成就共 {total} 个，新解锁 {unlocked} 个";
+            return unlocked == 0 ? $"Steam 的 {total} 个成就本来就齐了。" : $"Steam 成就 {total} 个，这次新解锁 {unlocked} 个。";
         }
 
         public static string UnlockCollections()
@@ -97,7 +97,7 @@ namespace ChineseParentsMod
             int addedNpcs = AddMissing(npcs.UnlockedNpcIds, SingleTon<TableMgr>.Instance.TableNPC.GetIDList());
 
             SaveAccount();
-            return $"传承等级 {level}；新增特长 {addedTricks}、职业 {addedJobs}、人物 {addedNpcs}";
+            return $"传承等级升到 {level} 级，新收录特长 {addedTricks} 个、职业 {addedJobs} 个、人物 {addedNpcs} 个。";
         }
 
         public static string UnlockTreasures()
@@ -113,7 +113,7 @@ namespace ChineseParentsMod
                 }
             }
             SaveAccount();
-            return $"新增传家宝 {added} 件";
+            return added == 0 ? "传家宝早就齐了。" : $"新拿到传家宝 {added} 件。";
         }
 
         public static float GetAttribute(EMainInfoType type) => SingleTon<NewPlayerDataMgr>.Instance[type];

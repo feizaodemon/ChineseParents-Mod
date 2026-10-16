@@ -5,3 +5,4 @@ ref/
 # Save backups are personal data.
 save-backup/
 *.log
+build/

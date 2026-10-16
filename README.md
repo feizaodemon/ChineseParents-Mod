@@ -2,31 +2,54 @@
 
 中国式家长（Steam AppID 736190）的修改器插件，基于 BepInEx 5。进游戏后按 F1 打开面板。
 
-![面板截图：解锁页、属性页、主菜单下的属性页](docs/preview.jpg)
+![面板截图：解锁页和设置页](docs/preview.jpg)
 
 ## 能做什么
 
-| 位置 | 按钮 | 效果 | 存到哪里 |
+| 位置 | 控件 | 效果 | 存到哪里 |
 |---|---|---|---|
-| 解锁页 | 成就 · 全部解锁 | 游戏里 31 类成就全部完成，Steam 成就一起解锁 | 账号存档、Steam |
+| 解锁页 | 成就 · 全部解锁 | 游戏里 31 类成就全部完成；“同时解锁 Steam 成就”开着时，Steam 成就一起解锁 | 账号存档、Steam |
 | 解锁页 | 图鉴 · 全部解锁 | 传承等级升满，特长、职业、人物全部收录 | 账号存档 |
 | 解锁页 | 传家宝 · 全部领取 | 每种传家宝各拿一件 | 账号存档 |
 | 属性页 | 设定 / 锁定 | 13 项属性改成任意数值，锁定后不再变动 | 本局存档，回合结束时由游戏保存 |
+| 设置页 | 文本速度 | 逐字文字按 1×、2×、4×、8× 或瞬间显示 | 插件配置 |
+| 设置页 | 跳过开场动画 | 启动时跳过工作室 logo，下次启动生效 | 插件配置 |
 
 - 解锁页在主菜单和游戏中都能用，点完马上写入账号存档。
 - 属性页要进入一局游戏后才能用。
-- Steam 成就解锁后会出现在个人资料上。想撤销，只能用 Steam Achievement Manager 这类外部工具。
+- Steam 成就解锁后会出现在个人资料上。想撤销，只能用 Steam Achievement Manager 这类外部工具。不想动 Steam，就把成就卡片里的开关关掉。
+- 设置存在 `<游戏目录>\BepInEx\config\local.chineseparents.cheatpanel.cfg`。
+
+## 启动耗时
+
+从进程启动到登录阶段，每种情况测两次取平均（2026-10-16，RTX 5070 机器）：
+
+| 情况 | 耗时 |
+|---|---|
+| 原版，不装 BepInEx | 3.53 s |
+| 装 BepInEx，不跳过开场 | 3.98 s |
+| 装 BepInEx，跳过开场（默认） | 2.03 s |
+
+BepInEx 本身多花约 0.45 s。插件自己的加载（读配置、打补丁）约 10–17 ms。开场 logo 固定占 2 s，跳过后比原版快约 1.5 s。
 
 ## 实现
 
 - 所有改动都调用游戏自己的管理器：`AchievementMgr`、`CollectionMgr`、`NewTrickMgr`、`NewJobMgr`、`NpcMgr`、`TreasureMgr`、`NewPlayerDataMgr`。
 - 账号存档的写法和游戏相同：先调 `NewRecordMgr.RefreshAccountInfo`，再用 `IOHelper.SetData` 写盘，不碰本局存档。
 - Steam 成就用 Steamworks.NET 的 `SteamUserStats` 遍历全部成就名。
+- 文本速度：游戏的逐字文字都经过 `UIHelper.PlayTxt` 或 `PlayableText.PlayTxt`，Harmony 补丁在这两个入口把时长除以倍速。点击加速和直接显示全文的逻辑不变。
+- 跳过开场：补丁替换 `BeginWnd.OnShow`，做法和游戏在调试构建里的处理相同，直接加载 `Login` 场景。
 - 面板用 IMGUI 绘制。贴图在运行时生成，字号和圆角按屏幕高度缩放（以 1080p 为基准），插件只有一个 DLL。
 
 ## 目录
 
-- `src/ChineseParentsMod/`：插件源码。`Cheats.cs` 放游戏逻辑，`Plugin.cs` 放面板布局，`Theme.cs` 放配色和样式。
+- `src/ChineseParentsMod/`：插件源码。
+  - `Cheats.cs`：解锁和属性逻辑
+  - `Patches.cs`：Harmony 补丁（文本速度、跳过开场）
+  - `Settings.cs`：配置项
+  - `Plugin.cs`：面板布局
+  - `Theme.cs`：配色和样式
+  - `Preview.cs`、`SelfTest.cs`：只在预览构建和自测构建里编译
 - `tools/Decompile/`：把游戏 DLL 反编译到 `ref/`，只作本地 API 参考（`ref/` 不提交）。
 - `docs/`：README 用的截图。
 - `save-backup/`：存档备份（不提交）。
@@ -37,15 +60,30 @@
 dotnet build src/ChineseParentsMod -c Release
 ```
 
-### 预览版
+### 预览构建
 
-预览版用来调界面，不用手动操作游戏。它会在标题画面用假数据打开面板，截 4 张图到 `<游戏目录>\BepInEx\preview\`，然后自动退出游戏。
+用来调界面，不用手动操作游戏。它在标题画面用假数据打开面板，截 5 张图到 `<游戏目录>\BepInEx\preview\`，然后自动退出游戏。
 
 ```bash
 dotnet build src/ChineseParentsMod -c Release -p:DefineConstants=PREVIEW -o build/preview
 ```
 
-用完记得换回正式版 DLL。
+### 自测构建
+
+用来测稳定性和启动耗时。它记录启动时间线，等主菜单就绪后跑完下面的检查，把结果写到 `<游戏目录>\BepInEx\selftest.txt`，然后自动退出游戏：
+
+- 三项解锁各跑 3 次，第 2、3 次应该没有新增
+- 账号存档写盘后读回，和内存一致
+- 5 档文本速度下两个入口的时长都正确，`PlayableText.Duration` 字段会恢复
+- 三个页面的 `OnGUI` 耗时，以及开关面板 200 次后的托管内存变化
+- 主题按 5 种缩放重建后贴图不增长
+- 整个过程没有 Unity 错误日志
+
+```bash
+dotnet build src/ChineseParentsMod -c Release -p:DefineConstants=SELFTEST -o build/selftest
+```
+
+自测会用相同的数据重写账号存档，跑之前先备份存档。属性页需要进入一局游戏，自测覆盖不到。预览和自测用完都要换回正式版 DLL。
 
 ## 安装
 

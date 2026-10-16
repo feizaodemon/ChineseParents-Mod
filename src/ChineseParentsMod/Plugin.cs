@@ -1,21 +1,22 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using BepInEx;
+using HarmonyLib;
 using UnityEngine;
 
 namespace ChineseParentsMod
 {
-    [BepInPlugin("local.chineseparents.cheatpanel", "Chinese Parents Cheat Panel", "0.2.0")]
-    public class Plugin : BaseUnityPlugin
+    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "0.3.0")]
+    public partial class Plugin : BaseUnityPlugin
     {
+        private const string Guid = "local.chineseparents.cheatpanel";
         private const int WindowId = 0x43504D;
         private const float WindowWidth = 560f;
         // Layout sizes are authored for a 1080p screen; Theme scales them to the real one.
         private const float DesignHeight = 1080f;
-        private static readonly string[] Tabs = { "解锁", "属性" };
+        private static readonly string[] Tabs = { "解锁", "属性", "设置" };
 
         private bool m_show;
         private int m_tab;
@@ -29,9 +30,14 @@ namespace ChineseParentsMod
 
         private void Awake()
         {
-            Logger.LogInfo("loaded; press F1 to open the panel");
+            var watch = Stopwatch.StartNew();
+            Settings.Bind(Config);
+            new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+            Logger.LogInfo($"loaded in {watch.ElapsedMilliseconds} ms; press F1 to open the panel");
 #if PREVIEW
             StartCoroutine(PreviewShots());
+#elif SELFTEST
+            StartSelfTest();
 #endif
         }
 
@@ -66,11 +72,16 @@ namespace ChineseParentsMod
             {
                 return;
             }
+#if SELFTEST
+            long start = Stopwatch.GetTimestamp();
+            RunPendingThemeTest();
+#endif
             float scale = Mathf.Max(0.7f, Screen.height / DesignHeight);
             if (m_theme == null || m_theme.Scale != scale)
             {
                 // The default IMGUI font has no CJK glyphs on some setups.
                 m_font = m_font ?? Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimHei" }, 16);
+                m_theme?.Dispose();
                 m_theme = new Theme(m_font, scale);
                 m_window = new Rect(m_theme.S(60), m_theme.S(60), m_theme.S(WindowWidth), 0);
             }
@@ -84,6 +95,9 @@ namespace ChineseParentsMod
             // Height 0 lets GUILayout shrink the window when the content gets shorter.
             m_window.height = 0;
             m_window = GUILayout.Window(WindowId, m_window, DrawWindow, GUIContent.none, m_theme.Window, GUILayout.Width(m_theme.S(WindowWidth)));
+#if SELFTEST
+            RecordGuiTime(Stopwatch.GetTimestamp() - start);
+#endif
         }
 
         private void DrawWindow(int id)
@@ -106,7 +120,8 @@ namespace ChineseParentsMod
             GUILayout.Space(m_theme.S(14));
 
             if (m_tab == 0) DrawUnlocks(loggedIn);
-            else DrawAttributes(inGame);
+            else if (m_tab == 1) DrawAttributes(inGame);
+            else DrawSettings();
 
             if (m_message.Length > 0)
             {
@@ -119,28 +134,74 @@ namespace ChineseParentsMod
 
         private void DrawUnlocks(bool loggedIn)
         {
+            bool steam = Settings.SteamAchievements.Value;
             GUI.enabled = loggedIn;
-            UnlockCard("成就", "游戏里的成就全部完成，Steam 成就一起解锁。", "全部解锁", Cheats.UnlockAchievements);
-            UnlockCard("图鉴", "传承等级升满，特长、职业、人物全部收录。", "全部解锁", Cheats.UnlockCollections);
-            UnlockCard("传家宝", "每种传家宝各拿一件。", "全部领取", Cheats.UnlockTreasures);
+            Card("成就", steam ? "游戏里的成就全部完成，Steam 成就也一起解锁。" : "只完成游戏里的成就，Steam 成就不动。",
+                () => ActionButton("全部解锁", () => Cheats.UnlockAchievements(steam)),
+                () => Settings.SteamAchievements.Value = SwitchRow("同时解锁 Steam 成就（解锁后会显示在 Steam 个人资料上）", steam));
+            Card("图鉴", "传承等级升满，特长、职业、人物全部收录。", () => ActionButton("全部解锁", Cheats.UnlockCollections));
+            Card("传家宝", "每种传家宝各拿一件。", () => ActionButton("全部领取", Cheats.UnlockTreasures));
             GUI.enabled = true;
             GUILayout.Label(loggedIn ? "点完马上存进账号存档，正在玩的这局不受影响。" : "存档还没读完，稍等一下。", m_theme.Note);
         }
 
-        private void UnlockCard(string title, string description, string button, Func<string> action)
+        private void DrawSettings()
         {
-            GUILayout.BeginHorizontal(m_theme.Card);
+            Card("文本速度", "对话和事件文字逐字出现的速度。点一下对话框仍然可以直接显示全文。", null, () =>
+            {
+                GUILayout.Space(m_theme.S(8));
+                GUILayout.BeginHorizontal(m_theme.Segment);
+                Settings.TextSpeedIndex.Value = GUILayout.Toolbar(Settings.TextSpeedIndex.Value, Settings.TextSpeedLabels, m_theme.Tab);
+                GUILayout.EndHorizontal();
+            });
+            Card("跳过开场动画", "启动时跳过工作室 logo，直接进标题画面。下次启动生效。",
+                () => Settings.SkipIntro.Value = Switch(Settings.SkipIntro.Value), descriptionWidth: 400);
+            GUILayout.Label("设置自动保存，重启游戏后仍然有效。", m_theme.Note);
+        }
+
+        // A white card: title and description on the left, an optional control on the right, optional extra row below.
+        private void Card(string title, string description, Action right, Action below = null, float descriptionWidth = 330)
+        {
+            GUILayout.BeginVertical(m_theme.Card);
+            GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
             GUILayout.Label(title, m_theme.Section);
-            GUILayout.Label(description, m_theme.Body, GUILayout.Width(m_theme.S(330)));
+            GUILayout.Label(description, m_theme.Body, GUILayout.Width(m_theme.S(right == null ? 480 : descriptionWidth)));
             GUILayout.EndVertical();
-            GUILayout.FlexibleSpace();
-            GUILayout.BeginVertical();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button(button, m_theme.Primary, GUILayout.Width(m_theme.S(112)))) Run(action);
-            GUILayout.FlexibleSpace();
-            GUILayout.EndVertical();
+            if (right != null)
+            {
+                GUILayout.FlexibleSpace();
+                GUILayout.BeginVertical();
+                GUILayout.FlexibleSpace();
+                right();
+                GUILayout.FlexibleSpace();
+                GUILayout.EndVertical();
+            }
             GUILayout.EndHorizontal();
+            below?.Invoke();
+            GUILayout.EndVertical();
+        }
+
+        private void ActionButton(string label, Func<string> action)
+        {
+            if (GUILayout.Button(label, m_theme.Primary, GUILayout.Width(m_theme.S(112)))) Run(action);
+        }
+
+        private bool SwitchRow(string label, bool on)
+        {
+            GUILayout.Space(m_theme.S(8));
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, m_theme.NoteRow, GUILayout.Width(m_theme.S(390)));
+            GUILayout.FlexibleSpace();
+            on = Switch(on);
+            GUILayout.EndHorizontal();
+            return on;
+        }
+
+        private bool Switch(bool on)
+        {
+            bool clicked = GUILayout.Button(on ? "开" : "关", on ? m_theme.LockOn : m_theme.LockOff, GUILayout.Width(m_theme.S(64)));
+            return clicked ? !on : on;
         }
 
         private void DrawAttributes(bool inGame)
@@ -210,44 +271,7 @@ namespace ChineseParentsMod
             else Logger.LogError(message + "\n" + e);
         }
 
-#if PREVIEW
-        // Preview build only: opens the panel on the title screen with fake data, saves screenshots, then quits.
-        private int m_previewStage;
-        private readonly Dictionary<EMainInfoType, float> m_fake = new Dictionary<EMainInfoType, float>();
-
-        private bool IsLoggedIn() => m_previewStage >= 1;
-        private bool IsInGame() => m_previewStage >= 2;
-        private float ReadAttribute(EMainInfoType type) => m_fake.TryGetValue(type, out float v) ? v : 120 + (int)type * 37;
-        private void WriteAttribute(EMainInfoType type, float value) => m_fake[type] = value;
-
-        private IEnumerator PreviewShots()
-        {
-            string dir = Path.Combine(Paths.BepInExRootPath, "preview");
-            Directory.CreateDirectory(dir);
-            yield return new WaitForSeconds(15f);
-            m_show = true;
-            yield return Shot(dir, "0-logged-out");
-            m_previewStage = 2;
-            Report("成就已全部完成。Steam 成就 23 个，这次新解锁 2 个。");
-            yield return Shot(dir, "1-unlock");
-            m_tab = 1;
-            m_fake[EMainInfoType.IQ] = 9999;
-            m_locked[EMainInfoType.IQ] = 9999;
-            Report("智商改成了 9999。");
-            yield return Shot(dir, "2-attributes");
-            m_previewStage = 1;
-            m_message = "";
-            yield return Shot(dir, "3-attributes-menu");
-            Application.Quit();
-        }
-
-        private static IEnumerator Shot(string dir, string name)
-        {
-            yield return new WaitForSeconds(1f);
-            ScreenCapture.CaptureScreenshot(Path.Combine(dir, name + ".png"));
-            yield return new WaitForSeconds(1f);
-        }
-#else
+#if !PREVIEW
         private static bool IsLoggedIn() => Cheats.LoggedIn;
         private static bool IsInGame() => Cheats.InGame;
         private static float ReadAttribute(EMainInfoType type) => Cheats.GetAttribute(type);

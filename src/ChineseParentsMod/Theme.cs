@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ChineseParentsMod
@@ -20,12 +21,13 @@ namespace ChineseParentsMod
         public static readonly Color Warn = Hex(0xB7791F);
 
         public readonly float Scale;
-        public GUIStyle Window, Shadow, Title, Hint, Section, Body, Note, Value, Empty, RowName;
+        public GUIStyle Window, Shadow, Title, Hint, Section, Body, Note, NoteRow, Value, Empty, RowName;
         public GUIStyle Segment, Tab, Card, Row, RowAlt, Primary, Ghost, Field, Close, Message;
         public GUIStyle ChipGray, ChipAmber, ChipGreen, LockOff, LockOn;
 
         private readonly Font m_font;
         private readonly Texture2D m_clear;
+        private readonly List<Texture2D> m_textures = new List<Texture2D>();
 
         public Theme(Font font, float scale)
         {
@@ -49,6 +51,10 @@ namespace ChineseParentsMod
             Value.alignment = TextAnchor.MiddleRight;
             RowName.fixedHeight = Value.fixedHeight = S(30);
             RowName.padding = Value.padding = Pad(0, 0, 1, 5);
+            NoteRow = Text(13, InkSoft);
+            NoteRow.alignment = TextAnchor.MiddleLeft;
+            NoteRow.fixedHeight = S(30);
+            NoteRow.padding = Pad(0, 0, 1, 5);
 
             Segment = Box(Rounded(PaperDeep, Line, 10), 10, Pad(4, 4, 4, 4));
             Tab = Button(16, m_clear, m_clear, m_clear, InkSoft, Ink, 8);
@@ -94,6 +100,16 @@ namespace ChineseParentsMod
             Message.font = font;
             Message.fontSize = S(14);
             Message.wordWrap = true;
+        }
+
+        // Textures are not garbage collected; free them when the theme is rebuilt for a new resolution.
+        public void Dispose()
+        {
+            foreach (Texture2D tex in m_textures)
+            {
+                Object.Destroy(tex);
+            }
+            m_textures.Clear();
         }
 
         public int S(float designPixels) => Mathf.RoundToInt(designPixels * Scale);
@@ -182,7 +198,7 @@ namespace ChineseParentsMod
             return tex;
         }
 
-        private static Texture2D Solid(Color c)
+        private Texture2D Solid(Color c)
         {
             var tex = NewTexture(1);
             tex.SetPixel(0, 0, c);
@@ -190,8 +206,12 @@ namespace ChineseParentsMod
             return tex;
         }
 
-        private static Texture2D NewTexture(int size) =>
-            new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+        private Texture2D NewTexture(int size)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            m_textures.Add(tex);
+            return tex;
+        }
 
         private static Color Hex(int rgb) => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
     }

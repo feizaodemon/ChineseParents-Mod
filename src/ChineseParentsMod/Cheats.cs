@@ -33,7 +33,7 @@ namespace ChineseParentsMod
         // Player attributes only exist while a playthrough is loaded.
         public static bool InGame => Records.CurrentRecord != null && Records.CurrentRoleCoreInfo != null;
 
-        public static string UnlockAchievements()
+        public static string UnlockAchievements(bool includeSteam)
         {
             AchievementMgr mgr = SingleTon<AchievementMgr>.Instance;
             Traverse t = Traverse.Create(mgr);
@@ -50,7 +50,7 @@ namespace ChineseParentsMod
             }
             mgr.OnChg?.Invoke();
             SaveAccount();
-            return "成就已全部完成。" + UnlockSteamAchievements();
+            return "成就已全部完成。" + (includeSteam ? UnlockSteamAchievements() : "Steam 成就没动。");
         }
 
         private static string UnlockSteamAchievements()

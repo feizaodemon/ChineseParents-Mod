@@ -68,14 +68,14 @@ namespace ChineseParentsMod
                 });
             }
 
-            Card("存一份快照", "把存档文件夹整个复制一份。正在玩的这局在回合结束时才写盘，没写盘的进度不在快照里。",
+            Card("存一份快照", "把现在的存档整个备份一份。正在玩的这局到回合结束才存档，之前的进度不在快照里。",
                 () => ActionButton("存快照", () =>
                 {
                     Snapshot s = Snapshots.Create(SnapshotKind.Manual);
                     m_snapshots = null;
                     return $"快照已存：{s.When}。";
                 }),
-                () => Settings.AutoSnapshot.Value = SwitchRow("解锁前自动存一份快照（自动快照最多留 10 份）", Settings.AutoSnapshot.Value));
+                () => Settings.AutoSnapshot.Value = SwitchRow("改动前自动存一份快照（最多留 10 份）", Settings.AutoSnapshot.Value));
 
             if (list.Count == 0)
             {

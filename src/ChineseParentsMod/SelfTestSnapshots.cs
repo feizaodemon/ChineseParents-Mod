@@ -96,6 +96,7 @@ namespace ChineseParentsMod
                 Check(Snapshots.List().Count == count + 1 && auto.Kind == SnapshotKind.BeforeUnlock && auto.What == "解锁传家宝前",
                     "解锁前自动存快照：" + auto.What);
                 Snapshots.Delete(auto);
+                Check(new Snapshot { Kind = SnapshotKind.BeforeUnlock, Note = "学费" }.What == "改学费前", "学费快照显示为“改学费前”");
             }
             catch (Exception e)
             {

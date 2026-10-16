@@ -22,7 +22,7 @@ namespace ChineseParentsMod
 
         public readonly float Scale;
         public GUIStyle Window, Shadow, Title, Hint, Section, Body, Note, NoteRow, Value, Empty, RowName;
-        public GUIStyle Segment, Tab, Card, Row, RowAlt, Primary, Ghost, Confirm, Field, Close, Message;
+        public GUIStyle Segment, Tab, Card, Row, RowAlt, Primary, Ghost, Confirm, Field, Close, Message, Toast;
         public GUIStyle ChipGray, ChipAmber, ChipGreen, LockOff, LockOn;
 
         private readonly Font m_font;
@@ -99,6 +99,12 @@ namespace ChineseParentsMod
             LockOn = Button(14, Rounded(Seal, Seal, 15), Rounded(SealDark, SealDark, 15), Rounded(SealDeep, SealDeep, 15), Color.white, Color.white, 15);
             LockOff.fixedHeight = LockOn.fixedHeight = S(30);
             LockOn.fontStyle = FontStyle.Bold;
+
+            Toast = Box(Rounded(Ink, Ink, 10), 10, Pad(18, 18, 9, 11));
+            Toast.font = font;
+            Toast.fontSize = S(16);
+            Toast.alignment = TextAnchor.MiddleCenter;
+            Toast.normal.textColor = Color.white;
 
             Message = Box(Rounded(PaperDeep, PaperDeep, 8), 8, Pad(12, 12, 8, 9));
             Message.font = font;

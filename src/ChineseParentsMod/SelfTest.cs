@@ -63,6 +63,8 @@ namespace ChineseParentsMod
             TestUnlocks();
             TestSaveRoundTrip();
             TestTextSpeed();
+            TestTuition();
+            yield return TestGameSpeed();
             yield return TestPanel();
             yield return TestThemeRebuild();
             TestSnapshotsInTempDir();
@@ -89,6 +91,38 @@ namespace ChineseParentsMod
             }
             string steam = Cheats.UnlockAchievements(true);
             Check(steam.Contains("Steam"), "Steam 成就路径：" + steam);
+        }
+
+        // Writes tuition + 1 to the account save, reads it back, then writes the original value again.
+        private void TestTuition()
+        {
+            int original = Cheats.Tuition;
+            Cheats.SetTuition(original + 1);
+            NewAccountSaverSubInfo disk = null;
+            SingleTon<NewRecordMgr>.Instance.ReqAccountSubInfo(x => disk = x);
+            Check(Cheats.Tuition == original + 1 && disk != null && disk.Tuition == original + 1, $"学费改写后写盘一致（{original} → {original + 1}）");
+            Cheats.SetTuition(original);
+            SingleTon<NewRecordMgr>.Instance.ReqAccountSubInfo(x => disk = x);
+            Check(disk.Tuition == original, $"学费改回 {original}");
+        }
+
+        private IEnumerator TestGameSpeed()
+        {
+            int saved = Settings.GameSpeedIndex.Value;
+            for (int i = 0; i < Settings.GameSpeeds.Length; i++)
+            {
+                Settings.GameSpeedIndex.Value = i;
+                yield return null;
+                float start = Time.realtimeSinceStartup;
+                yield return new WaitForSeconds(1f);
+                float real = Time.realtimeSinceStartup - start;
+                float expected = 1f / Settings.GameSpeeds[i];
+                Check(Time.timeScale == Settings.GameSpeeds[i] && Mathf.Abs(real - expected) < 0.1f + expected * 0.1f,
+                    $"游戏速度 {Settings.GameSpeedLabels[i]}：timeScale {Time.timeScale}，1 秒等待实际 {real:0.00} s");
+            }
+            Settings.GameSpeedIndex.Value = saved;
+            yield return null;
+            Check(Time.timeScale == Settings.GameSpeed, $"游戏速度恢复为 {Time.timeScale}");
         }
 
         private void TestSaveRoundTrip()

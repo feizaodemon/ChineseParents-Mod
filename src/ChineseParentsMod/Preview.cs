@@ -16,14 +16,21 @@ namespace ChineseParentsMod
 
         private bool IsLoggedIn() => m_previewStage >= 1;
         private bool IsInGame() => m_previewStage >= 2;
-        private float ReadAttribute(EMainInfoType type) => m_fake.TryGetValue(type, out float v) ? v : 120 + (int)type * 37;
+        private float ReadAttribute(EMainInfoType type) => m_fake.TryGetValue(type, out float v) ? v : 120 + Mathf.Abs((int)type) * 37 % 900;
         private void WriteAttribute(EMainInfoType type, float value) => m_fake[type] = value;
+        private int m_fakeTuition = 3900;
+        private int ReadTuition() => m_fakeTuition;
+        private string WriteTuition(int value) => $"学费改成了 {m_fakeTuition = value}。";
 
         private IEnumerator PreviewShots()
         {
             string dir = Path.Combine(Paths.BepInExRootPath, "preview");
             Directory.CreateDirectory(dir);
             yield return new WaitForSeconds(12f);
+            bool opened = Settings.PanelOpened.Value;
+            Settings.PanelOpened.Value = false;
+            yield return Shot(dir, "0-hint");
+            Settings.PanelOpened.Value = opened;
             m_show = true;
             yield return Shot(dir, "0-logged-out");
             m_previewStage = 2;
@@ -52,7 +59,9 @@ namespace ChineseParentsMod
             yield return Shot(dir, "4-snapshots");
             m_message = "";
             m_tab = 3;
+            Settings.GameSpeedIndex.Value = 2;
             yield return Shot(dir, "5-settings");
+            Settings.GameSpeedIndex.Value = 0;
             Application.Quit();
         }
 

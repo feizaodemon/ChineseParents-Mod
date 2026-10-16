@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ChineseParentsMod
 {
-    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "0.4.0")]
+    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "1.0.0")]
     public partial class Plugin : BaseUnityPlugin
     {
         private const string Guid = "local.chineseparents.cheatpanel";
@@ -25,6 +25,7 @@ namespace ChineseParentsMod
         private int m_tab;
         private Rect m_window;
         private string m_message = "";
+        private string m_tuitionInput;
         private bool m_messageIsError;
         private Theme m_theme;
         private Font m_font;
@@ -60,6 +61,8 @@ namespace ChineseParentsMod
             {
                 m_show = !m_show;
                 m_inputs.Clear();
+                m_tuitionInput = null;
+                if (m_show && !Settings.PanelOpened.Value) Settings.PanelOpened.Value = true;
                 m_snapshots = null;
             }
             Vector3 mouse = Input.mousePosition;
@@ -67,6 +70,9 @@ namespace ChineseParentsMod
 #if SELFTEST
             if (m_forcePointerOverPanel.HasValue) PointerOverPanel = m_forcePointerOverPanel.Value;
 #endif
+            // The game never sets timeScale itself, so the panel owns it.
+            float speed = Settings.GameSpeed;
+            if (Time.timeScale != speed) Time.timeScale = speed;
             if (m_locked.Count == 0 || !IsInGame())
             {
                 return;
@@ -87,7 +93,8 @@ namespace ChineseParentsMod
 
         private void OnGUI()
         {
-            if (!m_show)
+            // Until the panel has been opened once, the title screen shows how to open it.
+            if (!m_show && Settings.PanelOpened.Value)
             {
                 return;
             }
@@ -103,6 +110,11 @@ namespace ChineseParentsMod
                 m_theme?.Dispose();
                 m_theme = new Theme(m_font, scale);
                 m_window = new Rect(m_theme.S(60), m_theme.S(60), m_theme.S(WindowWidth), 0);
+            }
+            if (!m_show)
+            {
+                DrawFirstRunHint();
+                return;
             }
             m_window.x = Mathf.Clamp(m_window.x, 0f, Mathf.Max(0f, Screen.width - m_window.width));
             m_window.y = Mathf.Clamp(m_window.y, 0f, Mathf.Max(0f, Screen.height - m_window.height));
@@ -127,6 +139,10 @@ namespace ChineseParentsMod
             GUILayout.BeginHorizontal();
             GUILayout.Label("中国式家长 修改器", m_theme.Title);
             GUILayout.Label(inGame ? "游戏中" : loggedIn ? "主菜单" : "读取中", inGame ? m_theme.ChipGreen : loggedIn ? m_theme.ChipAmber : m_theme.ChipGray);
+            if (Settings.GameSpeedIndex.Value > 0)
+            {
+                GUILayout.Label("加速 " + Settings.GameSpeedLabels[Mathf.Clamp(Settings.GameSpeedIndex.Value, 0, Settings.GameSpeeds.Length - 1)], m_theme.ChipAmber);
+            }
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("×", m_theme.Close)) m_show = false;
             GUILayout.EndHorizontal();
@@ -163,14 +179,49 @@ namespace ChineseParentsMod
                 () => Settings.SteamAchievements.Value = SwitchRow("同时解锁 Steam 成就（解锁后会显示在 Steam 个人资料上）", steam));
             Card("图鉴", "传承等级升满，特长、职业、人物全部收录。", () => ActionButton("全部解锁", () => SnapshotThen("图鉴", Cheats.UnlockCollections)));
             Card("传家宝", "每种传家宝各拿一件。", () => ActionButton("全部领取", () => SnapshotThen("传家宝", Cheats.UnlockTreasures)));
+            DrawTuition(loggedIn);
             GUI.enabled = true;
             GUILayout.Label(!loggedIn ? "存档还没读完，稍等一下。" : Settings.AutoSnapshot.Value
-                ? "点完马上存进账号存档，正在玩的这局不受影响。解锁前会自动存快照。"
+                ? "点完马上存进账号存档，正在玩的这局不受影响。改动前会自动存快照。"
                 : "点完马上存进账号存档，正在玩的这局不受影响。", m_theme.Note);
+        }
+
+        private void DrawTuition(bool loggedIn)
+        {
+            int current = loggedIn ? ReadTuition() : 0;
+            // Filled from the account only after login, so a panel opened on the loading screen still gets the value.
+            if (m_tuitionInput == null && loggedIn) m_tuitionInput = current.ToString(CultureInfo.InvariantCulture);
+            Card("学费", "买传家宝用的钱。\n改好数目后点“设定”。", () =>
+            {
+                GUILayout.BeginHorizontal();
+                string typed = GUILayout.TextField(m_tuitionInput ?? "", m_theme.Field, GUILayout.Width(m_theme.S(100)));
+                if (loggedIn) m_tuitionInput = typed;
+                bool parsed = int.TryParse(m_tuitionInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && value >= 0;
+                if (GUILayout.Button("设定", m_theme.Ghost, GUILayout.Width(m_theme.S(64))))
+                {
+                    if (parsed) Run(() => SnapshotThen("学费", () => WriteTuition(value)));
+                    else Report("学费要填 0 或正整数。", null, true);
+                }
+                GUILayout.EndHorizontal();
+            }, descriptionWidth: 290);
+        }
+
+        private void DrawFirstRunHint()
+        {
+            var text = new GUIContent("按 F1 打开修改器");
+            Vector2 size = m_theme.Toast.CalcSize(text);
+            GUI.Label(new Rect((Screen.width - size.x) / 2f, m_theme.S(24), size.x, size.y), text, m_theme.Toast);
         }
 
         private void DrawSettings()
         {
+            Card("游戏速度", "动画和等待一起加快。小游戏也会变快，玩之前可调回 1×。", null, () =>
+            {
+                GUILayout.Space(m_theme.S(8));
+                GUILayout.BeginHorizontal(m_theme.Segment);
+                Settings.GameSpeedIndex.Value = GUILayout.Toolbar(Settings.GameSpeedIndex.Value, Settings.GameSpeedLabels, m_theme.Tab);
+                GUILayout.EndHorizontal();
+            });
             Card("文本速度", "对话和事件文字逐字出现的速度。点一下对话框仍然可以直接显示全文。", null, () =>
             {
                 GUILayout.Space(m_theme.S(8));
@@ -232,7 +283,7 @@ namespace ChineseParentsMod
         {
             if (!inGame)
             {
-                GUILayout.Label("进入一局游戏后才能改属性。", m_theme.Empty, GUILayout.Height(m_theme.S(140)));
+                GUILayout.Label("读档或开新档，进入一局游戏后才能改属性。", m_theme.Empty, GUILayout.Height(m_theme.S(140)));
                 return;
             }
             for (int i = 0; i < Cheats.Attributes.Length; i++)
@@ -241,7 +292,7 @@ namespace ChineseParentsMod
                 DrawAttribute(type, name, i % 2 == 0 ? m_theme.Row : m_theme.RowAlt);
             }
             GUILayout.Space(m_theme.S(6));
-            GUILayout.Label("锁定后数值不再变动。改动在本回合结束时跟着游戏一起存档。", m_theme.Note);
+            GUILayout.Label("在框里填数值，点“设定”生效；点“锁定”后数值保持不变。改动在本回合结束时随游戏存档。天赋点在选了天赋线后才用得上。", m_theme.Note);
         }
 
         private void DrawAttribute(EMainInfoType type, string name, GUIStyle row)
@@ -283,14 +334,14 @@ namespace ChineseParentsMod
             }
             catch (Exception e)
             {
-                Report($"出错了：{e.Message}。详情见 BepInEx 日志。", e);
+                Report($"出错了：{e.Message}。详情见游戏目录下的 BepInEx\\LogOutput.log。", e);
             }
         }
 
-        private void Report(string message, Exception e = null)
+        private void Report(string message, Exception e = null, bool isError = false)
         {
             m_message = message;
-            m_messageIsError = e != null;
+            m_messageIsError = e != null || isError;
             if (e == null) Logger.LogInfo(message);
             else Logger.LogError(message + "\n" + e);
         }
@@ -300,6 +351,8 @@ namespace ChineseParentsMod
         private static bool IsInGame() => Cheats.InGame;
         private static float ReadAttribute(EMainInfoType type) => Cheats.GetAttribute(type);
         private static void WriteAttribute(EMainInfoType type, float value) => Cheats.SetAttribute(type, value);
+        private static int ReadTuition() => Cheats.Tuition;
+        private static string WriteTuition(int value) => Cheats.SetTuition(value);
 #endif
     }
 }

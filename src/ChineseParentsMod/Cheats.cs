@@ -8,6 +8,10 @@ namespace ChineseParentsMod
     // way NewRecordMgr does it, so the game's normal save path keeps the result.
     internal static class Cheats
     {
+        // Talent points live in TalentLineMgr, not in the attribute table. This key lets the attribute
+        // tab treat them as one more row; the value is outside the real enum range.
+        public const EMainInfoType TalentPoints = (EMainInfoType)(-100);
+
         public static readonly (EMainInfoType Type, string Name)[] Attributes =
         {
             (EMainInfoType.IQ, "智商"),
@@ -23,6 +27,7 @@ namespace ChineseParentsMod
             (EMainInfoType.ParentDream, "父母期望"),
             (EMainInfoType.Shadow, "阴影"),
             (EMainInfoType.Face, "面子"),
+            (TalentPoints, "天赋点"),
         };
 
         private static NewRecordMgr Records => SingleTon<NewRecordMgr>.Instance;
@@ -116,10 +121,28 @@ namespace ChineseParentsMod
             return added == 0 ? "传家宝早就齐了。" : $"新拿到传家宝 {added} 件。";
         }
 
-        public static float GetAttribute(EMainInfoType type) => SingleTon<NewPlayerDataMgr>.Instance[type];
+        public static int Tuition => SingleTon<TuitionMgr>.Instance.Tuition;
+
+        // Tuition is account money (spent on heirlooms), so it goes straight into the account save.
+        public static string SetTuition(int value)
+        {
+            TuitionMgr mgr = SingleTon<TuitionMgr>.Instance;
+            mgr.AddTuition(value - mgr.Tuition);
+            SaveAccount();
+            return $"学费改成了 {mgr.Tuition}。";
+        }
+
+        public static float GetAttribute(EMainInfoType type) =>
+            type == TalentPoints ? SingleTon<TalentLineMgr>.Instance.TalentPo : SingleTon<NewPlayerDataMgr>.Instance[type];
 
         public static void SetAttribute(EMainInfoType type, float value)
         {
+            if (type == TalentPoints)
+            {
+                // The setter only fires its change event when the value differs.
+                SingleTon<TalentLineMgr>.Instance.TalentPo = (int)value;
+                return;
+            }
             NewPlayerDataMgr player = SingleTon<NewPlayerDataMgr>.Instance;
             if (player[type] != value)
             {

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using BepInEx;
 using DG.Tweening;
+using DG.Tweening.Core;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -122,7 +123,29 @@ namespace ChineseParentsMod
             }
             Settings.GameSpeedIndex.Value = saved;
             yield return null;
+            Check(LoopRunsOnRealTime(-1) && !LoopRunsOnRealTime(1), "无限循环的 DOTweenAnimation 用真实时间，单次的仍跟随游戏速度");
             Check(Time.timeScale == Settings.GameSpeed, $"游戏速度恢复为 {Time.timeScale}");
+        }
+
+        // Builds a throwaway scale animation the way a prefab would, then reads the tween's update mode.
+        private static bool LoopRunsOnRealTime(int loops)
+        {
+            var go = new GameObject("cpmod-selftest-loop");
+            try
+            {
+                var anim = go.AddComponent<DOTweenAnimation>();
+                anim.target = go.transform;
+                anim.animationType = DOTweenAnimationType.Scale;
+                anim.endValueV3 = Vector3.one * 2f;
+                anim.loops = loops;
+                anim.isValid = true;
+                anim.CreateTween();
+                return Traverse.Create(anim.tween).Field("isIndependentUpdate").GetValue<bool>();
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(go);
+            }
         }
 
         private void TestSaveRoundTrip()

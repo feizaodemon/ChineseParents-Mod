@@ -24,6 +24,17 @@ namespace ChineseParentsMod
         private static void Postfix(PlayableText __instance, float __state) => __instance.Duration = __state;
     }
 
+    // Endless DOTweenAnimation loops (button glows, pulsing hints) are decoration set up in prefabs. Run them on
+    // real time so the game speed setting does not make them flash faster; one-shot tweens still follow it.
+    [HarmonyPatch(typeof(DG.Tweening.DOTweenAnimation), nameof(DG.Tweening.DOTweenAnimation.CreateTween))]
+    internal static class DecorativeLoopPatch
+    {
+        private static void Prefix(DG.Tweening.DOTweenAnimation __instance)
+        {
+            if (__instance.loops == -1) __instance.isIndependentUpdate = true;
+        }
+    }
+
     // IMGUI does not consume clicks for uGUI, so a click on the panel would also hit the game button under it.
     // While the pointer is over the panel, skip the frame's uGUI input processing.
     [HarmonyPatch(typeof(EventSystem), "Update")]

@@ -31,6 +31,7 @@ namespace ChineseParentsMod
         private Font m_font;
         private readonly Dictionary<EMainInfoType, string> m_inputs = new Dictionary<EMainInfoType, string>();
         private readonly Dictionary<EMainInfoType, float> m_locked = new Dictionary<EMainInfoType, float>();
+        private List<string> m_failedPatches;
 
         private void Awake()
         {
@@ -46,7 +47,11 @@ namespace ChineseParentsMod
                 Logger.LogError("pending restore failed: " + e);
             }
             Settings.Bind(Config);
-            new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+            m_failedPatches = PatchLoader.Apply(new Harmony(Guid), Logger.LogError);
+            if (m_failedPatches.Count > 0)
+            {
+                Report($"这几项功能没能启用：{string.Join("、", m_failedPatches)}。游戏可能更新过，其他功能照常可用。详情见游戏目录下的 BepInEx\\LogOutput.log。", null, true);
+            }
             Logger.LogInfo($"loaded in {watch.ElapsedMilliseconds} ms; press F1 to open the panel");
 #if PREVIEW
             StartCoroutine(PreviewShots());

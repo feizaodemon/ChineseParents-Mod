@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using BepInEx;
 using DG.Tweening;
 using DG.Tweening.Core;
@@ -25,6 +26,7 @@ namespace ChineseParentsMod
         private int m_guiFrames;
         private bool m_themeTestPending;
         private bool? m_forceMinigame;
+        private bool m_breakMinigameCheck;
 
         private void StartSelfTest()
         {
@@ -69,6 +71,7 @@ namespace ChineseParentsMod
             TestAttributeNames();
             yield return TestGameSpeed();
             yield return TestMinigameSpeed();
+            yield return TestRobustness();
             yield return TestPanel();
             yield return TestThemeRebuild();
             TestSnapshotsInTempDir();
@@ -177,6 +180,36 @@ namespace ChineseParentsMod
             bool restored = Time.timeScale == 3f && (m_toast ?? "").Contains("3×");
             Check(slowed && restored, $"3× 下进小游戏切到 1×、退出恢复 3×；提示：{enterToast} / {m_toast}");
             m_forceMinigame = null;
+            Settings.GameSpeedIndex.Value = saved;
+            yield return null;
+        }
+
+        // A patch with a missing target (BrokenPatchForSelfTest) must leave the others working, and an exception
+        // in the per-frame mini-game check must keep the chosen speed instead of breaking every frame.
+        private IEnumerator TestRobustness()
+        {
+            var owned = new List<string>();
+            foreach (MethodBase method in Harmony.GetAllPatchedMethods())
+            {
+                if (Harmony.GetPatchInfo(method).Owners.Contains(Guid)) owned.Add(method.DeclaringType.Name + "." + method.Name);
+            }
+            bool onlyBroken = m_failedPatches.Count == 1 && m_failedPatches[0] == nameof(BrokenPatchForSelfTest);
+            Check(onlyBroken && owned.Count == 5 && m_messageIsError && m_message.Contains(nameof(BrokenPatchForSelfTest)),
+                $"坏补丁只关掉自己，面板提示了它；没挂上：{string.Join("、", m_failedPatches)}；挂上 {owned.Count} 个：{string.Join("、", owned)}");
+            m_message = "";
+
+            int saved = Settings.GameSpeedIndex.Value;
+            Settings.GameSpeedIndex.Value = 2;
+            int errorsBefore = m_minigameCheckErrors;
+            m_breakMinigameCheck = true;
+            for (int i = 0; i < 5; i++) yield return null;
+            int caught = m_minigameCheckErrors - errorsBefore;
+            bool kept = Time.timeScale == 3f && !InMinigame;
+            m_breakMinigameCheck = false;
+            yield return null;
+            yield return null;
+            Check(caught >= 5 && kept && m_windows != null,
+                $"小游戏检测连续 {caught} 帧出错时异常都被接住，速度保持 {Time.timeScale}×，恢复后重新读到窗口表");
             Settings.GameSpeedIndex.Value = saved;
             yield return null;
         }

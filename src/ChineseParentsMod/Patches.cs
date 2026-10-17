@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -56,6 +58,49 @@ namespace ChineseParentsMod
             UIRoot.Instance.DestoryAllWnd();
             SceneManager.LoadScene("Login");
             return false;
+        }
+    }
+
+#if SELFTEST
+    // Targets a method that does not exist, so the self-test can check that one bad patch leaves the rest working.
+    [HarmonyPatch(typeof(Plugin), "NoSuchMethod")]
+    internal static class BrokenPatchForSelfTest
+    {
+        private static void Prefix() { }
+    }
+#endif
+
+    internal static class PatchLoader
+    {
+        private static readonly Dictionary<string, string> Features = new Dictionary<string, string>
+        {
+            { nameof(TypewriterPatch), "文本速度" },
+            { nameof(PlayableTextPatch), "文本速度" },
+            { nameof(DecorativeLoopPatch), "装饰光效不跟着加速" },
+            { nameof(BlockClickThroughPatch), "防点击穿透" },
+            { nameof(SkipIntroPatch), "跳过开场动画" },
+        };
+
+        // One class at a time: if a game update renames one target, only that feature stops working.
+        // Returns the player-facing names of the features that could not be patched.
+        public static List<string> Apply(Harmony harmony, Action<string> logError)
+        {
+            var failed = new List<string>();
+            foreach (Type type in AccessTools.GetTypesFromAssembly(typeof(PatchLoader).Assembly))
+            {
+                if (!type.IsDefined(typeof(HarmonyPatch), false)) continue;
+                try
+                {
+                    harmony.CreateClassProcessor(type).Patch();
+                }
+                catch (Exception e)
+                {
+                    logError($"patch {type.Name} failed, that feature is off: {e.Message}");
+                    string feature = Features.TryGetValue(type.Name, out string name) ? name : type.Name;
+                    if (!failed.Contains(feature)) failed.Add(feature);
+                }
+            }
+            return failed;
         }
     }
 }

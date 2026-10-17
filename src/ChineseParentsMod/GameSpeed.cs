@@ -16,6 +16,7 @@ namespace ChineseParentsMod
         private Dictionary<EUILayer, List<IWnd>> m_windows;
         private UIRoot m_windowsOwner;
         private Minigame m_minigame;
+        private int m_minigameCheckErrors;
         private string m_toast;
         private float m_toastUntil;
 
@@ -23,7 +24,17 @@ namespace ChineseParentsMod
 
         private void UpdateGameSpeed()
         {
-            Minigame minigame = Settings.SlowInMinigames.Value ? OpenMinigame() : null;
+            Minigame minigame = null;
+            try
+            {
+                if (Settings.SlowInMinigames.Value) minigame = OpenMinigame();
+            }
+            catch (Exception e)
+            {
+                // Runs every frame: report once, read the window table afresh next frame, keep the chosen speed meanwhile.
+                m_windows = null;
+                if (++m_minigameCheckErrors == 1) Logger.LogError("mini-game check failed, keeping the chosen speed: " + e);
+            }
 #if SELFTEST
             if (m_forceMinigame.HasValue) minigame = m_forceMinigame.Value ? Settings.Minigames[0] : null;
 #endif
@@ -44,6 +55,9 @@ namespace ChineseParentsMod
 
         private Minigame OpenMinigame()
         {
+#if SELFTEST
+            if (m_breakMinigameCheck) throw new InvalidOperationException("self-test: broken window table");
+#endif
             UIRoot root = UIRoot.Instance;
             if (root == null)
             {

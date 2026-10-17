@@ -141,7 +141,7 @@ namespace ChineseParentsMod
             GUILayout.Label(inGame ? "游戏中" : loggedIn ? "主菜单" : "读取中", inGame ? m_theme.ChipGreen : loggedIn ? m_theme.ChipAmber : m_theme.ChipGray);
             if (Settings.GameSpeedIndex.Value > 0)
             {
-                GUILayout.Label(m_inMinigame ? "小游戏中 1×" : "加速 " + Settings.GameSpeedLabel, m_inMinigame ? m_theme.ChipGray : m_theme.ChipAmber);
+                GUILayout.Label(InMinigame ? "小游戏中 1×" : "加速 " + Settings.GameSpeedLabel, InMinigame ? m_theme.ChipGray : m_theme.ChipAmber);
             }
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("×", m_theme.Close)) m_show = false;
@@ -215,7 +215,7 @@ namespace ChineseParentsMod
                 GUILayout.BeginHorizontal(m_theme.Segment);
                 Settings.GameSpeedIndex.Value = GUILayout.Toolbar(Settings.GameSpeedIndex.Value, Settings.GameSpeedLabels, m_theme.Tab);
                 GUILayout.EndHorizontal();
-                Settings.SlowInMinigames.Value = SwitchRow("进小游戏时自动调回 1×，结束后恢复", Settings.SlowInMinigames.Value);
+                DrawMinigameSwitches();
             });
             Card("文本速度", "对话和事件文字逐字出现的速度。点一下对话框仍然可以直接显示全文。", null, () =>
             {

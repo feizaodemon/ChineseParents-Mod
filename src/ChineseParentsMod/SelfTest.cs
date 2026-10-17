@@ -133,12 +133,23 @@ namespace ChineseParentsMod
         private IEnumerator TestMinigameSpeed()
         {
             var missing = new List<string>();
-            foreach (string name in MinigameWindows)
+            int windows = 0;
+            bool mapped = true;
+            foreach (Minigame game in Settings.Minigames)
             {
-                if (typeof(UIRoot).Assembly.GetType(name) == null) missing.Add(name);
+                foreach (string name in game.Windows)
+                {
+                    windows++;
+                    Type type = typeof(UIRoot).Assembly.GetType(name);
+                    if (type == null) missing.Add(name);
+                    else mapped &= MinigameOf(type) == game;
+                }
             }
-            Check(missing.Count == 0, missing.Count == 0 ? $"{MinigameWindows.Count} 个小游戏窗口类名都存在" : "找不到的小游戏窗口：" + string.Join("、", missing));
-            bool open = MinigameOpen();
+            Check(missing.Count == 0 && mapped, missing.Count == 0
+                ? $"{Settings.Minigames.Length} 个小游戏的 {windows} 个窗口类名都存在，并对应到各自的小游戏"
+                : "找不到的小游戏窗口：" + string.Join("、", missing));
+            Check(MinigameOf(typeof(ExamWnd)) == null, "学习窗口不在小游戏名单里，一直加速");
+            bool open = OpenMinigame() != null;
             var shown = new List<string>();
             if (m_windows != null)
             {
@@ -159,7 +170,7 @@ namespace ChineseParentsMod
             yield return null;
             yield return null;
             string enterToast = m_toast ?? "";
-            bool slowed = Time.timeScale == 1f && enterToast.Contains("1×");
+            bool slowed = Time.timeScale == 1f && enterToast.Contains("1×") && enterToast.Contains(Settings.Minigames[0].Name);
             m_forceMinigame = false;
             yield return null;
             yield return null;

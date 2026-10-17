@@ -61,7 +61,7 @@ namespace ChineseParentsMod
             m_tab = 3;
             int speed = Settings.GameSpeedIndex.Value;
             Settings.GameSpeedIndex.Value = 2;
-            ShowToast("进入小游戏，速度暂时调回 1×");
+            ShowToast("进入作文大赛，速度暂时调回 1×");
             yield return Shot(dir, "5-settings");
             Settings.GameSpeedIndex.Value = speed;
             Application.Quit();

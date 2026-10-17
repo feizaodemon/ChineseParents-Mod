@@ -5,73 +5,97 @@ using UnityEngine;
 
 namespace ChineseParentsMod
 {
-    // Game speed, with a drop to 1x while a mini-game window is open: speeding those up only makes them harder.
+    // Game speed, with a drop to 1x while a chosen mini-game window is open (Settings.Minigames).
     public partial class Plugin
     {
         private const float ToastSeconds = 4f;
+        private const int MinigamesPerRow = 4;
 
-        // Only the mini-games that run on a real-time clock (Time.deltaTime in RedPacket, AimBar and ColorPlate).
-        // The turn-based ones (study, face fight, election, quiz...) only have animations, so they keep the speed.
-        internal static readonly HashSet<string> MinigameWindows = new HashSet<string> { "OldRedPacketWnd", "ArtExamWnd" };
-
-        private readonly Dictionary<Type, bool> m_isMinigame = new Dictionary<Type, bool>();
+        // Null for windows that are not part of any listed mini-game.
+        private readonly Dictionary<Type, Minigame> m_minigameOf = new Dictionary<Type, Minigame>();
         private Dictionary<EUILayer, List<IWnd>> m_windows;
         private UIRoot m_windowsOwner;
-        private bool m_inMinigame;
+        private Minigame m_minigame;
         private string m_toast;
         private float m_toastUntil;
 
+        private bool InMinigame => m_minigame != null;
+
         private void UpdateGameSpeed()
         {
-            bool inMinigame = Settings.SlowInMinigames.Value && MinigameOpen();
+            Minigame minigame = Settings.SlowInMinigames.Value ? OpenMinigame() : null;
 #if SELFTEST
-            if (m_forceMinigame.HasValue) inMinigame = m_forceMinigame.Value;
+            if (m_forceMinigame.HasValue) minigame = m_forceMinigame.Value ? Settings.Minigames[0] : null;
 #endif
-            if (inMinigame != m_inMinigame)
+            if (minigame != m_minigame)
             {
-                m_inMinigame = inMinigame;
+                // Moving between two windows of the same game (e.g. picking cards, then the battle) keeps it.
+                Minigame left = m_minigame;
+                m_minigame = minigame;
                 if (Settings.GameSpeed > 1f)
                 {
-                    ShowToast(inMinigame ? "进入小游戏，速度暂时调回 1×" : "小游戏结束，速度恢复 " + Settings.GameSpeedLabel);
+                    ShowToast(minigame != null ? $"进入{minigame.Name}，速度暂时调回 1×" : $"{left.Name}结束，速度恢复 {Settings.GameSpeedLabel}");
                 }
             }
             // The game never sets timeScale itself, so the panel owns it.
-            float speed = m_inMinigame ? 1f : Settings.GameSpeed;
+            float speed = InMinigame ? 1f : Settings.GameSpeed;
             if (Time.timeScale != speed) Time.timeScale = speed;
         }
 
-        private bool MinigameOpen()
+        private Minigame OpenMinigame()
         {
             UIRoot root = UIRoot.Instance;
             if (root == null)
             {
-                return false;
+                return null;
             }
             if (root != m_windowsOwner || m_windows == null)
             {
                 // The window table is filled during UIRoot's own setup; keep asking until it exists.
                 m_windows = Traverse.Create(root).Field("DicLayer2WndList").GetValue<Dictionary<EUILayer, List<IWnd>>>();
                 m_windowsOwner = m_windows == null ? null : root;
-                if (m_windows == null) return false;
+                if (m_windows == null) return null;
             }
             foreach (List<IWnd> layer in m_windows.Values)
             {
                 foreach (IWnd window in layer)
                 {
-                    if (window != null && window.IsShow && IsMinigame(window.GetType())) return true;
+                    if (window == null || !window.IsShow) continue;
+                    Minigame minigame = MinigameOf(window.GetType());
+                    if (minigame != null && minigame.Enabled.Value) return minigame;
                 }
             }
-            return false;
+            return null;
         }
 
-        private bool IsMinigame(Type type)
+        private Minigame MinigameOf(Type type)
         {
-            if (!m_isMinigame.TryGetValue(type, out bool result))
+            if (!m_minigameOf.TryGetValue(type, out Minigame result))
             {
-                result = MinigameWindows.Contains(type.Name);
-                m_isMinigame[type] = result;
+                result = Array.Find(Settings.Minigames, game => Array.IndexOf(game.Windows, type.Name) >= 0);
+                m_minigameOf[type] = result;
             }
             return result;
+        }
+
+        private void DrawMinigameSwitches()
+        {
+            Settings.SlowInMinigames.Value = SwitchRow("进下面亮着的小游戏时自动调回 1×，结束后恢复", Settings.SlowInMinigames.Value);
+            if (!Settings.SlowInMinigames.Value) return;
+            for (int i = 0; i < Settings.Minigames.Length; i += MinigamesPerRow)
+            {
+                GUILayout.Space(m_theme.S(6));
+                GUILayout.BeginHorizontal();
+                for (int j = i; j < Math.Min(i + MinigamesPerRow, Settings.Minigames.Length); j++)
+                {
+                    Minigame game = Settings.Minigames[j];
+                    bool on = game.Enabled.Value;
+                    if (GUILayout.Button(game.Name, on ? m_theme.LockOn : m_theme.LockOff, GUILayout.Width(m_theme.S(110)))) game.Enabled.Value = !on;
+                }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.Label("点名字切换。学习、打工、相亲这类只需要等的环节一直加速。", m_theme.NoteRow);
         }
 
         private void ShowToast(string text)

@@ -20,11 +20,11 @@ namespace ChineseParentsMod
             (EMainInfoType.Memory, "记忆"),
             (EMainInfoType.Stamination, "体质"),
             (EMainInfoType.Charm, "魅力"),
-            (EMainInfoType.Wisdom, "智慧"),
-            (EMainInfoType.Potentiality, "潜力"),
+            (EMainInfoType.Wisdom, "悟性"),
+            (EMainInfoType.Potentiality, "体力"),
             (EMainInfoType.Money, "金钱"),
             (EMainInfoType.Pressure, "压力"),
-            (EMainInfoType.ParentDream, "父母期望"),
+            (EMainInfoType.ParentDream, "满意度"),
             (EMainInfoType.Shadow, "阴影"),
             (EMainInfoType.Face, "面子"),
             (TalentPoints, "天赋点"),
@@ -119,6 +119,22 @@ namespace ChineseParentsMod
             }
             SaveAccount();
             return added == 0 ? "传家宝早就齐了。" : $"新拿到传家宝 {added} 件。";
+        }
+
+        // The name the game itself shows (its localisation table, so it follows the game language);
+        // the built-in name is only a fallback for before the table loads.
+        public static string DisplayName(EMainInfoType type, string fallback)
+        {
+            if (type == TalentPoints) return fallback;
+            try
+            {
+                string name = StringUtil.GetMainInfoName(type);
+                return string.IsNullOrEmpty(name) ? fallback : name;
+            }
+            catch
+            {
+                return fallback;
+            }
         }
 
         public static int Tuition => SingleTon<TuitionMgr>.Instance.Tuition;

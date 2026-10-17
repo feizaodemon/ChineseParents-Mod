@@ -288,8 +288,8 @@ namespace ChineseParentsMod
             }
             for (int i = 0; i < Cheats.Attributes.Length; i++)
             {
-                (EMainInfoType type, string name) = Cheats.Attributes[i];
-                DrawAttribute(type, name, i % 2 == 0 ? m_theme.Row : m_theme.RowAlt);
+                (EMainInfoType type, string fallback) = Cheats.Attributes[i];
+                DrawAttribute(type, Cheats.DisplayName(type, fallback), i % 2 == 0 ? m_theme.Row : m_theme.RowAlt);
             }
             GUILayout.Space(m_theme.S(6));
             GUILayout.Label("在框里填数值，点“设定”生效；点“锁定”后数值保持不变。改动在本回合结束时随游戏存档。天赋点在选了天赋线后才用得上。", m_theme.Note);

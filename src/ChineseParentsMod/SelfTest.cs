@@ -65,6 +65,7 @@ namespace ChineseParentsMod
             TestSaveRoundTrip();
             TestTextSpeed();
             TestTuition();
+            TestAttributeNames();
             yield return TestGameSpeed();
             yield return TestPanel();
             yield return TestThemeRebuild();
@@ -146,6 +147,19 @@ namespace ChineseParentsMod
             {
                 UnityEngine.Object.Destroy(go);
             }
+        }
+
+        private void TestAttributeNames()
+        {
+            var names = new List<string>();
+            bool allOfficial = true;
+            foreach ((EMainInfoType type, string fallback) in Cheats.Attributes)
+            {
+                string name = Cheats.DisplayName(type, fallback);
+                if (type != Cheats.TalentPoints && name == fallback && StringUtil.GetMainInfoName(type) != fallback) allOfficial = false;
+                names.Add(name);
+            }
+            Check(allOfficial, "属性名取自游戏：" + string.Join("、", names));
         }
 
         private void TestSaveRoundTrip()

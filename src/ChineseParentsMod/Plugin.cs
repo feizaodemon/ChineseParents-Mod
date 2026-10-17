@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ChineseParentsMod
 {
-    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "1.0.0")]
+    [BepInPlugin(Guid, "Chinese Parents Cheat Panel", "1.0.1")]
     public partial class Plugin : BaseUnityPlugin
     {
         private const string Guid = "local.chineseparents.cheatpanel";

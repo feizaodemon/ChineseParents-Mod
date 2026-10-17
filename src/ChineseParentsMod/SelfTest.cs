@@ -24,6 +24,7 @@ namespace ChineseParentsMod
         private long m_guiTicks;
         private int m_guiFrames;
         private bool m_themeTestPending;
+        private bool? m_forceMinigame;
 
         private void StartSelfTest()
         {
@@ -67,6 +68,7 @@ namespace ChineseParentsMod
             TestTuition();
             TestAttributeNames();
             yield return TestGameSpeed();
+            yield return TestMinigameSpeed();
             yield return TestPanel();
             yield return TestThemeRebuild();
             TestSnapshotsInTempDir();
@@ -126,6 +128,46 @@ namespace ChineseParentsMod
             yield return null;
             Check(LoopRunsOnRealTime(-1) && !LoopRunsOnRealTime(1), "无限循环的 DOTweenAnimation 用真实时间，单次的仍跟随游戏速度");
             Check(Time.timeScale == Settings.GameSpeed, $"游戏速度恢复为 {Time.timeScale}");
+        }
+
+        private IEnumerator TestMinigameSpeed()
+        {
+            var missing = new List<string>();
+            foreach (string name in MinigameWindows)
+            {
+                if (typeof(UIRoot).Assembly.GetType(name) == null) missing.Add(name);
+            }
+            Check(missing.Count == 0, missing.Count == 0 ? $"{MinigameWindows.Count} 个小游戏窗口类名都存在" : "找不到的小游戏窗口：" + string.Join("、", missing));
+            bool open = MinigameOpen();
+            var shown = new List<string>();
+            if (m_windows != null)
+            {
+                foreach (List<IWnd> layer in m_windows.Values)
+                {
+                    foreach (IWnd window in layer)
+                    {
+                        if (window != null && window.IsShow) shown.Add(window.GetType().Name);
+                    }
+                }
+            }
+            Check(!open && m_windows != null && m_windows.Count > 0, $"能读到窗口表（{m_windows?.Count ?? 0} 层），主菜单没有小游戏；显示中的窗口：{string.Join("、", shown)}");
+
+            int saved = Settings.GameSpeedIndex.Value;
+            Settings.GameSpeedIndex.Value = 2;
+            yield return null;
+            m_forceMinigame = true;
+            yield return null;
+            yield return null;
+            string enterToast = m_toast ?? "";
+            bool slowed = Time.timeScale == 1f && enterToast.Contains("1×");
+            m_forceMinigame = false;
+            yield return null;
+            yield return null;
+            bool restored = Time.timeScale == 3f && (m_toast ?? "").Contains("3×");
+            Check(slowed && restored, $"3× 下进小游戏切到 1×、退出恢复 3×；提示：{enterToast} / {m_toast}");
+            m_forceMinigame = null;
+            Settings.GameSpeedIndex.Value = saved;
+            yield return null;
         }
 
         // Builds a throwaway scale animation the way a prefab would, then reads the tween's update mode.

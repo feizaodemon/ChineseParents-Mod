@@ -15,6 +15,7 @@ namespace ChineseParentsMod
 
         public static ConfigEntry<int> TextSpeedIndex;
         public static ConfigEntry<int> GameSpeedIndex;
+        public static ConfigEntry<bool> SlowInMinigames;
         public static ConfigEntry<bool> SkipIntro;
         public static ConfigEntry<bool> SteamAchievements;
         public static ConfigEntry<bool> AutoSnapshot;
@@ -23,6 +24,7 @@ namespace ChineseParentsMod
         public static void Bind(ConfigFile config)
         {
             GameSpeedIndex = config.Bind("Game", "SpeedIndex", 0, "Game speed (Time.timeScale): 0 = 1x, 1 = 2x, 2 = 3x, 3 = 5x.");
+            SlowInMinigames = config.Bind("Game", "SlowInMinigames", true, "Drop to 1x while a mini-game window is open, then restore.");
             TextSpeedIndex = config.Bind("Text", "SpeedIndex", 0, "Typewriter speed: 0 = 1x, 1 = 2x, 2 = 4x, 3 = 8x, 4 = instant.");
             SkipIntro = config.Bind("Startup", "SkipIntro", true, "Skip the studio logo and go straight to the title screen.");
             SteamAchievements = config.Bind("Unlock", "SteamAchievements", true, "Also unlock Steam achievements when unlocking all achievements.");
@@ -31,6 +33,7 @@ namespace ChineseParentsMod
         }
 
         public static float GameSpeed => GameSpeeds[Mathf.Clamp(GameSpeedIndex.Value, 0, GameSpeeds.Length - 1)];
+        public static string GameSpeedLabel => GameSpeedLabels[Mathf.Clamp(GameSpeedIndex.Value, 0, GameSpeeds.Length - 1)];
 
         public static float ScaleDuration(float duration)
         {

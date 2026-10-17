@@ -70,9 +70,7 @@ namespace ChineseParentsMod
 #if SELFTEST
             if (m_forcePointerOverPanel.HasValue) PointerOverPanel = m_forcePointerOverPanel.Value;
 #endif
-            // The game never sets timeScale itself, so the panel owns it.
-            float speed = Settings.GameSpeed;
-            if (Time.timeScale != speed) Time.timeScale = speed;
+            UpdateGameSpeed();
             if (m_locked.Count == 0 || !IsInGame())
             {
                 return;
@@ -93,8 +91,9 @@ namespace ChineseParentsMod
 
         private void OnGUI()
         {
-            // Until the panel has been opened once, the title screen shows how to open it.
-            if (!m_show && Settings.PanelOpened.Value)
+            // Until the panel has been opened once, the screen shows how to open it.
+            bool toast = Time.unscaledTime < m_toastUntil;
+            if (!m_show && !toast && Settings.PanelOpened.Value)
             {
                 return;
             }
@@ -113,7 +112,7 @@ namespace ChineseParentsMod
             }
             if (!m_show)
             {
-                DrawFirstRunHint();
+                DrawToast(toast ? m_toast : "按 F1 打开修改器");
                 return;
             }
             m_window.x = Mathf.Clamp(m_window.x, 0f, Mathf.Max(0f, Screen.width - m_window.width));
@@ -126,6 +125,7 @@ namespace ChineseParentsMod
             // Height 0 lets GUILayout shrink the window when the content gets shorter.
             m_window.height = 0;
             m_window = GUILayout.Window(WindowId, m_window, DrawWindow, GUIContent.none, m_theme.Window, GUILayout.Width(m_theme.S(WindowWidth)));
+            if (toast) DrawToast(m_toast);
 #if SELFTEST
             RecordGuiTime(Stopwatch.GetTimestamp() - start);
 #endif
@@ -141,7 +141,7 @@ namespace ChineseParentsMod
             GUILayout.Label(inGame ? "游戏中" : loggedIn ? "主菜单" : "读取中", inGame ? m_theme.ChipGreen : loggedIn ? m_theme.ChipAmber : m_theme.ChipGray);
             if (Settings.GameSpeedIndex.Value > 0)
             {
-                GUILayout.Label("加速 " + Settings.GameSpeedLabels[Mathf.Clamp(Settings.GameSpeedIndex.Value, 0, Settings.GameSpeeds.Length - 1)], m_theme.ChipAmber);
+                GUILayout.Label(m_inMinigame ? "小游戏中 1×" : "加速 " + Settings.GameSpeedLabel, m_inMinigame ? m_theme.ChipGray : m_theme.ChipAmber);
             }
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("×", m_theme.Close)) m_show = false;
@@ -206,21 +206,16 @@ namespace ChineseParentsMod
             }, descriptionWidth: 290);
         }
 
-        private void DrawFirstRunHint()
-        {
-            var text = new GUIContent("按 F1 打开修改器");
-            Vector2 size = m_theme.Toast.CalcSize(text);
-            GUI.Label(new Rect((Screen.width - size.x) / 2f, m_theme.S(24), size.x, size.y), text, m_theme.Toast);
-        }
 
         private void DrawSettings()
         {
-            Card("游戏速度", "动画和等待一起加快。小游戏也会变快，玩之前可调回 1×。", null, () =>
+            Card("游戏速度", "动画和等待一起加快。", null, () =>
             {
                 GUILayout.Space(m_theme.S(8));
                 GUILayout.BeginHorizontal(m_theme.Segment);
                 Settings.GameSpeedIndex.Value = GUILayout.Toolbar(Settings.GameSpeedIndex.Value, Settings.GameSpeedLabels, m_theme.Tab);
                 GUILayout.EndHorizontal();
+                Settings.SlowInMinigames.Value = SwitchRow("进小游戏时自动调回 1×，结束后恢复", Settings.SlowInMinigames.Value);
             });
             Card("文本速度", "对话和事件文字逐字出现的速度。点一下对话框仍然可以直接显示全文。", null, () =>
             {

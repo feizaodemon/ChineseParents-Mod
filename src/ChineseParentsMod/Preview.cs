@@ -20,6 +20,7 @@ namespace ChineseParentsMod
         private void WriteAttribute(EMainInfoType type, float value) => m_fake[type] = value;
         private int m_fakeTuition = 3900;
         private int ReadTuition() => m_fakeTuition;
+        private string RoundKey() => "preview";
         private string WriteTuition(int value) => $"学费改成了 {m_fakeTuition = value}。";
 
         private IEnumerator PreviewShots()
@@ -47,10 +48,10 @@ namespace ChineseParentsMod
             m_tab = 2;
             m_snapshots = new List<Snapshot>
             {
-                new Snapshot { Name = "a", Time = new DateTime(2026, 10, 16, 21, 40, 12), Kind = SnapshotKind.BeforeUnlock, Note = "成就" },
-                new Snapshot { Name = "b", Time = new DateTime(2026, 10, 16, 20, 15, 3), Kind = SnapshotKind.Manual },
-                new Snapshot { Name = "c", Time = new DateTime(2026, 10, 15, 23, 2, 47), Kind = SnapshotKind.BeforeRestore },
-                new Snapshot { Name = "d", Time = new DateTime(2026, 10, 15, 22, 58, 30), Kind = SnapshotKind.BeforeUnlock, Note = "传家宝" },
+                new Snapshot { Name = "a", Time = new DateTime(2026, 10, 16, 21, 40, 12), Kind = SnapshotKind.BeforeUnlock, Note = "成就", Summary = "王小明 12 岁" },
+                new Snapshot { Name = "b", Time = new DateTime(2026, 10, 16, 20, 15, 3), Kind = SnapshotKind.Manual, Summary = "王小明 9 岁" },
+                new Snapshot { Name = "c", Time = new DateTime(2026, 10, 15, 23, 2, 47), Kind = SnapshotKind.BeforeRestore, Summary = "DLC 李雪 6 岁" },
+                new Snapshot { Name = "d", Time = new DateTime(2026, 10, 15, 22, 58, 30), Kind = SnapshotKind.BeforeUnlock, Note = "传家宝", Summary = "还没有对局" },
             };
             m_pending = "b";
             m_confirmKey = "delete:d";

@@ -16,12 +16,14 @@ namespace ChineseParentsMod
         public DateTime Time;
         public SnapshotKind Kind;
         public string Note;
+        // Filled by the 存档 tab when it lists the snapshot; null until then.
+        public string Summary;
 
         public string When => Time.ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
         public string What =>
             Kind == SnapshotKind.Manual ? "手动" :
-            Kind == SnapshotKind.BeforeUnlock ? (Note == "学费" ? "改学费前" : $"解锁{Note}前") : "回滚前";
+            Kind == SnapshotKind.BeforeUnlock ? (Note == "学费" || Note == "属性" ? $"改{Note}前" : $"解锁{Note}前") : "回滚前";
     }
 
     // Whole-folder copies of the game's Save directory. They live in ModSnapshots next to Save, so Steam Cloud

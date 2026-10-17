@@ -38,6 +38,16 @@ namespace ChineseParentsMod
         // Player attributes only exist while a playthrough is loaded.
         public static bool InGame => Records.CurrentRecord != null && Records.CurrentRoleCoreInfo != null;
 
+        // Which save slot and round is loaded. The game writes the playthrough to disk only when this changes.
+        public static string RoundKey
+        {
+            get
+            {
+                SaverRoleCoreInfo info = Records.CurrentRoleCoreInfo;
+                return info == null ? null : $"{info.dlc}-{info.recordIndex}-{info.curGeneration}-{info.curRound}";
+            }
+        }
+
         public static string UnlockAchievements(bool includeSteam)
         {
             AchievementMgr mgr = SingleTon<AchievementMgr>.Instance;

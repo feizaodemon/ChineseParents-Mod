@@ -33,8 +33,11 @@ namespace ChineseParentsMod
         private readonly Dictionary<EMainInfoType, float> m_locked = new Dictionary<EMainInfoType, float>();
         private List<string> m_failedPatches;
 
+        internal static Plugin Instance { get; private set; }
+
         private void Awake()
         {
+            Instance = this;
             var watch = Stopwatch.StartNew();
             // Before the game reads any save file.
             try
@@ -70,12 +73,14 @@ namespace ChineseParentsMod
                 if (m_show && !Settings.PanelOpened.Value) Settings.PanelOpened.Value = true;
                 m_snapshots = null;
             }
+            if (Input.GetKeyDown(KeyCode.F2)) CycleGameSpeed();
             Vector3 mouse = Input.mousePosition;
             PointerOverPanel = m_show && m_window.Contains(new Vector2(mouse.x, Screen.height - mouse.y));
 #if SELFTEST
             if (m_forcePointerOverPanel.HasValue) PointerOverPanel = m_forcePointerOverPanel.Value;
 #endif
             UpdateGameSpeed();
+            UpdateEventWatch();
             if (m_locked.Count == 0 || !IsInGame())
             {
                 return;
@@ -151,7 +156,7 @@ namespace ChineseParentsMod
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("×", m_theme.Close)) m_show = false;
             GUILayout.EndHorizontal();
-            GUILayout.Label("F1 打开或收起，拖动标题栏可以移动", m_theme.Hint);
+            GUILayout.Label("F1 打开或收起，F2 切换游戏速度，拖动标题栏可以移动", m_theme.Hint);
             GUILayout.Space(m_theme.S(14));
 
             GUILayout.BeginHorizontal(m_theme.Segment);
@@ -310,18 +315,22 @@ namespace ChineseParentsMod
             bool parsed = float.TryParse(m_inputs[type], NumberStyles.Float, CultureInfo.InvariantCulture, out float value);
             if (GUILayout.Button("设定", m_theme.Ghost, GUILayout.Width(m_theme.S(64))) && parsed)
             {
-                Run(() =>
+                Run(() => SnapshotBeforeAttributes(() =>
                 {
                     WriteAttribute(type, value);
                     if (m_locked.ContainsKey(type)) m_locked[type] = value;
                     return $"{name}改成了 {value:0}。";
-                });
+                }));
             }
             bool locked = m_locked.ContainsKey(type);
             if (GUILayout.Button(locked ? "已锁定" : "锁定", locked ? m_theme.LockOn : m_theme.LockOff, GUILayout.Width(m_theme.S(76))))
             {
                 if (locked) m_locked.Remove(type);
-                else m_locked[type] = parsed ? value : current;
+                else Run(() => SnapshotBeforeAttributes(() =>
+                {
+                    float kept = m_locked[type] = parsed ? value : current;
+                    return $"{name}锁定在 {kept:0}。";
+                }));
             }
             GUILayout.EndHorizontal();
         }
@@ -352,6 +361,11 @@ namespace ChineseParentsMod
         private static float ReadAttribute(EMainInfoType type) => Cheats.GetAttribute(type);
         private static void WriteAttribute(EMainInfoType type, float value) => Cheats.SetAttribute(type, value);
         private static int ReadTuition() => Cheats.Tuition;
+#if SELFTEST
+        private string RoundKey() => m_forceRoundKey ?? Cheats.RoundKey;
+#else
+        private static string RoundKey() => Cheats.RoundKey;
+#endif
         private static string WriteTuition(int value) => Cheats.SetTuition(value);
 #endif
     }

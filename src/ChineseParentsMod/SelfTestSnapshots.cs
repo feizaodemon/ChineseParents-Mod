@@ -14,6 +14,7 @@ namespace ChineseParentsMod
     public partial class Plugin
     {
         private bool? m_forcePointerOverPanel;
+        private string m_forceRoundKey;
         private static int s_processCalls;
 
         // Everything runs on throwaway folders, so the real saves are never touched here.
@@ -97,6 +98,34 @@ namespace ChineseParentsMod
                     "解锁前自动存快照：" + auto.What);
                 Snapshots.Delete(auto);
                 Check(new Snapshot { Kind = SnapshotKind.BeforeUnlock, Note = "学费" }.What == "改学费前", "学费快照显示为“改学费前”");
+
+                string summary = SaveSummary.Describe(snapshot.Dir);
+                string empty = Path.Combine(Path.GetTempPath(), "cpmod-selftest-empty");
+                Directory.CreateDirectory(empty);
+                string none = SaveSummary.Describe(empty);
+                Directory.Delete(empty, true);
+                Check((summary.Contains("岁") || summary.Contains("回合")) && none == "还没有对局", $"快照摘要读自存档：{summary}；空文件夹：{none}");
+
+                Thread.Sleep(5);
+                count = Snapshots.List().Count;
+                Settings.AutoSnapshot.Value = true;
+                m_attributeSnapshotRound = null;
+                m_forceRoundKey = "selftest-1";
+                int changes = 0;
+                SnapshotBeforeAttributes(() => (++changes).ToString());
+                Thread.Sleep(5);
+                SnapshotBeforeAttributes(() => (++changes).ToString());
+                int sameRound = Snapshots.List().Count - count;
+                Thread.Sleep(5);
+                m_forceRoundKey = "selftest-2";
+                SnapshotBeforeAttributes(() => (++changes).ToString());
+                var created = Snapshots.List().Take(Snapshots.List().Count - count).ToList();
+                Check(sameRound == 1 && created.Count == 2 && changes == 3 && created.All(s => s.What == "改属性前"),
+                    $"改属性前每回合只存一份快照：同一回合 {sameRound} 份，换回合后共 {created.Count} 份，改动执行 {changes} 次");
+                created.ForEach(Snapshots.Delete);
+                m_forceRoundKey = null;
+                m_attributeSnapshotRound = null;
+                Settings.AutoSnapshot.Value = autoSetting;
             }
             catch (Exception e)
             {

@@ -16,6 +16,7 @@ namespace ChineseParentsMod
         private string m_pending;
         private string m_confirmKey;
         private float m_confirmUntil;
+        private string m_attributeSnapshotRound;
 
         // If the snapshot fails the unlock does not run, so there is never an unlock without a way back.
         private string SnapshotThen(string what, Func<string> unlock)
@@ -28,6 +29,17 @@ namespace ChineseParentsMod
             return unlock();
         }
 
+        // The game writes the playthrough to disk only at the end of a round, so a second snapshot in the same
+        // round would be identical. Take one per round, not one per click.
+        private string SnapshotBeforeAttributes(Func<string> change)
+        {
+            string round = RoundKey();
+            if (round != null && round == m_attributeSnapshotRound) return change();
+            string result = SnapshotThen("属性", change);
+            if (Settings.AutoSnapshot.Value) m_attributeSnapshotRound = round;
+            return result;
+        }
+
         private void DrawSnapshots()
         {
             if (m_snapshots == null)
@@ -36,6 +48,7 @@ namespace ChineseParentsMod
                 {
                     m_snapshots = Snapshots.List();
                     m_pending = Snapshots.PendingName();
+                    DescribeSnapshots(m_snapshots);
                 }
                 catch (Exception e)
                 {
@@ -99,12 +112,31 @@ namespace ChineseParentsMod
             GUILayout.EndHorizontal();
         }
 
+        // Decrypting a record takes a few milliseconds, so only the listed snapshots are read, once per listing.
+        private void DescribeSnapshots(List<Snapshot> list)
+        {
+            for (int i = 0; i < list.Count && i < VisibleSnapshots; i++)
+            {
+                if (list[i].Summary != null) continue;
+                try
+                {
+                    list[i].Summary = SaveSummary.Describe(list[i].Dir);
+                }
+                catch (Exception e)
+                {
+                    list[i].Summary = "";
+                    Logger.LogWarning($"cannot read snapshot {list[i].Name}: {e.Message}");
+                }
+            }
+        }
+
         private void DrawSnapshotRow(Snapshot snapshot, GUIStyle row)
         {
             bool pending = snapshot.Name == m_pending;
             GUILayout.BeginHorizontal(row);
-            GUILayout.Label(snapshot.When, m_theme.RowName, GUILayout.Width(m_theme.S(140)));
-            GUILayout.Label(snapshot.What, m_theme.NoteRow, GUILayout.Width(m_theme.S(110)));
+            GUILayout.Label(snapshot.When, m_theme.RowName, GUILayout.Width(m_theme.S(120)));
+            GUILayout.Label(snapshot.What, m_theme.NoteRow, GUILayout.Width(m_theme.S(88)));
+            GUILayout.Label(snapshot.Summary ?? "", m_theme.NoteRow, GUILayout.Width(m_theme.S(100)));
             GUILayout.FlexibleSpace();
             if (pending)
             {

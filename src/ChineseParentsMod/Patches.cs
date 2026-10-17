@@ -61,6 +61,17 @@ namespace ChineseParentsMod
         }
     }
 
+    // Every special event (red packet, composition contest, DLC games...) starts here. Prefix, so the windows
+    // already open before the event can be told apart from the ones it opens.
+    [HarmonyPatch(typeof(NewActionMgr), nameof(NewActionMgr.DoActionEffect))]
+    internal static class SpecialEventPatch
+    {
+        private static void Prefix(ExtraActionInfoPair _obj)
+        {
+            if (_obj != null) Plugin.Instance?.WatchSpecialEvent(_obj.type.ToString());
+        }
+    }
+
 #if SELFTEST
     // Targets a method that does not exist, so the self-test can check that one bad patch leaves the rest working.
     [HarmonyPatch(typeof(Plugin), "NoSuchMethod")]
@@ -79,6 +90,7 @@ namespace ChineseParentsMod
             { nameof(DecorativeLoopPatch), "装饰光效不跟着加速" },
             { nameof(BlockClickThroughPatch), "防点击穿透" },
             { nameof(SkipIntroPatch), "跳过开场动画" },
+            { nameof(SpecialEventPatch), "特殊事件记录" },
         };
 
         // One class at a time: if a game update renames one target, only that feature stops working.

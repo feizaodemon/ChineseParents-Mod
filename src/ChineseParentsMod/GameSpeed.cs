@@ -53,23 +53,18 @@ namespace ChineseParentsMod
             if (Time.timeScale != speed) Time.timeScale = speed;
         }
 
+        private void CycleGameSpeed()
+        {
+            Settings.GameSpeedIndex.Value = (Settings.GameSpeedIndex.Value + 1) % Settings.GameSpeeds.Length;
+            ShowToast(InMinigame ? $"游戏速度 {Settings.GameSpeedLabel}，小游戏结束后生效" : $"游戏速度 {Settings.GameSpeedLabel}");
+        }
+
         private Minigame OpenMinigame()
         {
 #if SELFTEST
             if (m_breakMinigameCheck) throw new InvalidOperationException("self-test: broken window table");
 #endif
-            UIRoot root = UIRoot.Instance;
-            if (root == null)
-            {
-                return null;
-            }
-            if (root != m_windowsOwner || m_windows == null)
-            {
-                // The window table is filled during UIRoot's own setup; keep asking until it exists.
-                m_windows = Traverse.Create(root).Field("DicLayer2WndList").GetValue<Dictionary<EUILayer, List<IWnd>>>();
-                m_windowsOwner = m_windows == null ? null : root;
-                if (m_windows == null) return null;
-            }
+            if (WindowTable() == null) return null;
             foreach (List<IWnd> layer in m_windows.Values)
             {
                 foreach (IWnd window in layer)
@@ -80,6 +75,23 @@ namespace ChineseParentsMod
                 }
             }
             return null;
+        }
+
+        // UIRoot's private table of every window by layer; null until UIRoot exists and has set it up.
+        private Dictionary<EUILayer, List<IWnd>> WindowTable()
+        {
+            UIRoot root = UIRoot.Instance;
+            if (root == null)
+            {
+                return null;
+            }
+            if (root != m_windowsOwner || m_windows == null)
+            {
+                // The window table is filled during UIRoot's own setup; keep asking until it exists.
+                m_windows = Traverse.Create(root).Field("DicLayer2WndList").GetValue<Dictionary<EUILayer, List<IWnd>>>();
+                m_windowsOwner = m_windows == null ? null : root;
+            }
+            return m_windows;
         }
 
         private Minigame MinigameOf(Type type)

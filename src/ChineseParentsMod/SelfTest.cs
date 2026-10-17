@@ -72,6 +72,8 @@ namespace ChineseParentsMod
             yield return TestGameSpeed();
             yield return TestMinigameSpeed();
             yield return TestRobustness();
+            TestSpeedHotkey();
+            yield return TestEventWatch();
             yield return TestPanel();
             yield return TestThemeRebuild();
             TestSnapshotsInTempDir();
@@ -184,6 +186,30 @@ namespace ChineseParentsMod
             yield return null;
         }
 
+        private void TestSpeedHotkey()
+        {
+            int saved = Settings.GameSpeedIndex.Value;
+            Settings.GameSpeedIndex.Value = Settings.GameSpeeds.Length - 1;
+            CycleGameSpeed();
+            bool wrapped = Settings.GameSpeedIndex.Value == 0 && m_toast == "游戏速度 1×";
+            CycleGameSpeed();
+            bool next = Settings.GameSpeedIndex.Value == 1 && m_toast == "游戏速度 2×";
+            Settings.GameSpeedIndex.Value = saved;
+            Check(wrapped && next, "F2 从 5× 循环回 1×，再到 2×，并弹出提示");
+        }
+
+        private IEnumerator TestEventWatch()
+        {
+            m_lastEventLog = null;
+            WatchSpecialEvent("SelfTest");
+            m_watchUntil = Time.unscaledTime + 0.2f;
+            yield return new WaitForSecondsRealtime(0.5f);
+            string first = m_lastEventLog;
+            WatchSpecialEvent("SelfTest");
+            bool once = m_watchedEvent == null;
+            Check(first == "special event SelfTest opened: no new window" && once, $"特殊事件记录写进日志，同类事件只记一次：{first}");
+        }
+
         // A patch with a missing target (BrokenPatchForSelfTest) must leave the others working, and an exception
         // in the per-frame mini-game check must keep the chosen speed instead of breaking every frame.
         private IEnumerator TestRobustness()
@@ -194,7 +220,7 @@ namespace ChineseParentsMod
                 if (Harmony.GetPatchInfo(method).Owners.Contains(Guid)) owned.Add(method.DeclaringType.Name + "." + method.Name);
             }
             bool onlyBroken = m_failedPatches.Count == 1 && m_failedPatches[0] == nameof(BrokenPatchForSelfTest);
-            Check(onlyBroken && owned.Count == 5 && m_messageIsError && m_message.Contains(nameof(BrokenPatchForSelfTest)),
+            Check(onlyBroken && owned.Count == 6 && m_messageIsError && m_message.Contains(nameof(BrokenPatchForSelfTest)),
                 $"坏补丁只关掉自己，面板提示了它；没挂上：{string.Join("、", m_failedPatches)}；挂上 {owned.Count} 个：{string.Join("、", owned)}");
             m_message = "";
 
